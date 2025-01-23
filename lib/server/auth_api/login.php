@@ -17,21 +17,19 @@ function sendResponse($message, $status = 400, $data = null) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $login = $_POST['email']; // This can be either email or username
+    $login = $_POST['email'];
     $password = $_POST['password'];
 
     if (empty($login) || empty($password)) {
         sendResponse("Please provide all required fields.");
     }
 
-    // Check if the login input is an email or username
     $isEmail = validateEmail($login);
     
-    // Prepare the appropriate SQL query based on login type
     if ($isEmail) {
-        $sql = "SELECT id, username, email, password FROM tbl_users WHERE email = ?";
+        $sql = "SELECT id, username, email, password, date_reg, profile_pic FROM tbl_users WHERE email = ?";
     } else {
-        $sql = "SELECT id, username, email, password FROM tbl_users WHERE username = ?";
+        $sql = "SELECT id, username, email, password, date_reg, profile_pic FROM tbl_users WHERE username = ?";
     }
 
     $stmt = $conn->prepare($sql);
@@ -43,11 +41,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $user = $result->fetch_assoc();
         
         if (password_verify($password, $user['password'])) {
-            // Remove password from response data
             unset($user['password']);
             
+            $userData = [
+                'id' => $user['id'],
+                'username' => $user['username'],
+                'email' => $user['email'],
+                'date_reg' => $user['date_reg'] ?? date('Y-m-d'),
+                'profile_pic' => $user['profile_pic'] ?? 'assets/images/default_avatar.png'
+            ];
+            
             sendResponse("Login successful!", 200, [
-                'user' => $user
+                'user' => $userData
             ]);
         } else {
             sendResponse("Invalid password.");

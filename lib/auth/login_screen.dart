@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 import '../auth/register_screen.dart';
+import 'package:memberlink_app/models/user.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -154,26 +155,12 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _login() async {
-    // Basic input validation
     if (emailCtrl.text.isEmpty || passwordCtrl.text.isEmpty) {
       _showSnackBar('Please fill in all fields', false);
       return;
     }
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      if (rememberme) {
-        await prefs.setString('email', emailCtrl.text);
-        await prefs.setString('password', passwordCtrl.text);
-        await prefs.setBool('rememberMe', true);
-      } else {
-        await prefs.remove('email');
-        await prefs.remove('password');
-        await prefs.setBool('rememberMe', false);
-      }
-
-      if (!mounted) return;
-
       var response = await http.post(
         Uri.parse('http://localhost/memberlink_app/api/login.php'),
         body: {
@@ -184,42 +171,86 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      // Parse the response
       Map<String, dynamic> responseData = json.decode(response.body);
-      String message = responseData['message'] ?? 'Unknown error occurred';
 
       if (response.statusCode == 200) {
-        _showSnackBar('Login successful!', true);
+        final userData = responseData['data']['user'];
+        final user = User(
+          id: userData['id'].toString(),
+          username: userData['username'],
+          email: userData['email'],
+          dateReg: userData['date_reg'] ?? '',
+          profilePic:
+              userData['profile_pic'] ?? 'assets/images/default_avatar.png',
+        );
 
-        // Wait for the snackbar to be visible before navigation
+        await _storeUserData(user);
+        if (rememberme) {
+          await _storeCredentials(emailCtrl.text, passwordCtrl.text);
+        } else {
+          await _clearStoredCredentials();
+        }
+
+        _showSnackBar('Login successful!', true);
         await Future.delayed(const Duration(seconds: 1));
 
         if (!mounted) return;
 
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const DashboardScreen()),
+          MaterialPageRoute(builder: (context) => DashboardScreen(user: user)),
         );
       } else {
-        _showSnackBar(message, false);
+        _showSnackBar(responseData['message'], false);
       }
     } catch (e) {
-      _showSnackBar('Network error occurred. Please try again.', false);
+      _showSnackBar('Network error occurred', false);
     }
+  }
+
+  Future<void> _storeUserData(User user) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user', jsonEncode(user.toJson()));
+  }
+
+  Future<void> _storeCredentials(String identifier, String password) async {
+    final prefs = await SharedPreferences.getInstance();
+    final bool isEmail = identifier.contains('@');
+
+    await prefs.setBool('rememberMe', true);
+
+    if (isEmail) {
+      await prefs.setString('email', identifier);
+      await prefs.setString('password', password);
+      await prefs.remove('username');
+    } else {
+      await prefs.setString('username', identifier);
+      await prefs.setString('password', password);
+      await prefs.remove('email');
+    }
+  }
+
+  Future<void> _clearStoredCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('email');
+    await prefs.remove('username');
+    await prefs.remove('password');
+    await prefs.setBool('rememberMe', false);
   }
 
   @override
   void initState() {
     super.initState();
-    _loadSavedPreferences();
+    _loadSavedCredentials();
   }
 
-  void _loadSavedPreferences() async {
+  Future<void> _loadSavedCredentials() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       rememberme = prefs.getBool('rememberMe') ?? false;
       if (rememberme) {
-        emailCtrl.text = prefs.getString('email') ?? '';
+        emailCtrl.text =
+            prefs.getString('email') ?? prefs.getString('username') ?? '';
         passwordCtrl.text = prefs.getString('password') ?? '';
       }
     });

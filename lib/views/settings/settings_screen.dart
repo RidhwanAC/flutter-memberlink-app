@@ -1,20 +1,176 @@
 import 'package:flutter/material.dart';
 import 'package:memberlink_app/elements/app_drawer.dart';
 import 'package:memberlink_app/auth/login_screen.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:memberlink_app/models/user.dart';
 
-class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+class SettingsScreen extends StatefulWidget {
+  final User user;
+
+  const SettingsScreen({
+    super.key,
+    required this.user,
+  });
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  late User userData;
+
+  // Available profile pictures
+  late List<String> avatarOptions;
+
+  @override
+  void initState() {
+    super.initState();
+    userData = widget.user;
+    DefaultAssetBundle.of(context)
+        .loadString('AssetManifest.json')
+        .then((manifestJson) {
+      final Map<String, dynamic> manifest = json.decode(manifestJson);
+      avatarOptions = manifest.keys
+          .where((String key) =>
+              key.startsWith('assets/images/') &&
+              (key.endsWith('.png') ||
+                  key.endsWith('.jpg') ||
+                  key.endsWith('.jpeg')))
+          .toList();
+    });
+  }
+
+  void _showSnackBar(String message, bool isSuccess) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isSuccess ? Colors.green : Colors.red,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  Future<void> _updateProfilePicture(String newPicturePath) async {
+    try {
+      final response = await http.post(
+        Uri.parse('http://localhost/memberlink_app/api/update_profile_pic.php'),
+        body: {
+          'user_id': userData.id,
+          'profile_pic': newPicturePath,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          userData.profilePic = newPicturePath;
+        });
+        // Update stored user data
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user', jsonEncode(userData.toJson()));
+
+        _showSnackBar('Profile picture updated successfully!', true);
+      } else {
+        _showSnackBar('Failed to update profile picture', false);
+      }
+    } catch (e) {
+      _showSnackBar('Network error occurred', false);
+    }
+  }
+
+  void _showAvatarPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: Colors.grey,
+                      width: 0.5,
+                    ),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Choose Profile Picture',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.all(16),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  itemCount: avatarOptions.length,
+                  itemBuilder: (context, index) {
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.pop(context);
+                        _updateProfilePicture(avatarOptions[index]);
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: userData.profilePic == avatarOptions[index]
+                                ? const Color(0xFF6B4EFF)
+                                : Colors.grey.shade300,
+                            width: 2,
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.asset(
+                            avatarOptions[index],
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Dummy user data - replace with actual user data
-    final Map<String, dynamic> userData = {
-      'username': 'John Doe',
-      'email': 'john.doe@example.com',
-      'dateReg': '2024-03-20',
-      'profilePic': null, // Replace with actual profile pic URL when available
-    };
-
     return Scaffold(
       appBar: AppBar(
         iconTheme: const IconThemeData(color: Colors.white),
@@ -29,7 +185,7 @@ class SettingsScreen extends StatelessWidget {
         centerTitle: true,
         backgroundColor: const Color(0xFF9D84FF),
       ),
-      drawer: const AppDrawer(),
+      drawer: AppDrawer(user: userData),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -45,26 +201,46 @@ class SettingsScreen extends StatelessWidget {
               child: Column(
                 children: [
                   const SizedBox(height: 20),
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 4,
-                      ),
-                    ),
-                    child: CircleAvatar(
-                      radius: 60,
-                      backgroundColor: Colors.white,
-                      backgroundImage: userData['profilePic'] != null
-                          ? NetworkImage(userData['profilePic'])
-                          : const AssetImage('assets/images/default_avatar.png')
-                              as ImageProvider,
+                  GestureDetector(
+                    onTap: _showAvatarPicker,
+                    child: Stack(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 4,
+                            ),
+                          ),
+                          child: CircleAvatar(
+                            radius: 60,
+                            backgroundColor: Colors.white,
+                            backgroundImage: AssetImage(userData.profilePic),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF6B4EFF),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.edit,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 15),
                   Text(
-                    userData['username'],
+                    userData.username,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 24,
@@ -82,13 +258,13 @@ class SettingsScreen extends StatelessWidget {
                   _buildInfoCard(
                     icon: Icons.email,
                     title: 'Email',
-                    value: userData['email'],
+                    value: userData.email,
                   ),
                   const SizedBox(height: 16),
                   _buildInfoCard(
                     icon: Icons.calendar_today,
                     title: 'Registration Date',
-                    value: userData['dateReg'],
+                    value: userData.dateReg,
                   ),
                   const SizedBox(height: 32),
                   SizedBox(
@@ -96,7 +272,6 @@ class SettingsScreen extends StatelessWidget {
                     height: 50,
                     child: ElevatedButton(
                       onPressed: () {
-                        // Add logout logic here
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(

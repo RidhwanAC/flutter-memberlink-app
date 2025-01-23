@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:memberlink_app/elements/app_drawer.dart';
+import 'package:memberlink_app/models/user.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final User user;
+
+  const DashboardScreen({
+    super.key,
+    required this.user,
+  });
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -25,7 +31,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         centerTitle: true,
         backgroundColor: const Color(0xFF9D84FF),
       ),
-      drawer: const AppDrawer(),
+      drawer: AppDrawer(user: widget.user),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(

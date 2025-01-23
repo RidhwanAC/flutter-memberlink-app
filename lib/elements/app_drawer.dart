@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:memberlink_app/models/user.dart';
 import 'package:memberlink_app/views/dashboard/dashboard_screen.dart';
 import 'package:memberlink_app/views/membership/membership_screen.dart';
 import 'package:memberlink_app/views/news/news_screen.dart';
@@ -7,7 +8,12 @@ import 'package:memberlink_app/views/product/product_screen.dart';
 import 'package:memberlink_app/views/settings/settings_screen.dart';
 
 class AppDrawer extends StatelessWidget {
-  const AppDrawer({super.key});
+  final User user;
+
+  const AppDrawer({
+    super.key,
+    required this.user,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -15,8 +21,8 @@ class AppDrawer extends StatelessWidget {
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          const DrawerHeader(
-            decoration: BoxDecoration(
+          DrawerHeader(
+            decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -30,16 +36,12 @@ class AppDrawer extends StatelessWidget {
                 CircleAvatar(
                   radius: 30,
                   backgroundColor: Colors.white,
-                  child: Icon(
-                    Icons.person,
-                    size: 35,
-                    color: Color(0xFF6B4EFF),
-                  ),
+                  backgroundImage: AssetImage(user.profilePic),
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 Text(
-                  'Member Link',
-                  style: TextStyle(
+                  user.username,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -55,7 +57,8 @@ class AppDrawer extends StatelessWidget {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                    builder: (context) => const DashboardScreen()),
+                  builder: (context) => DashboardScreen(user: user),
+                ),
               );
             },
           ),
@@ -65,7 +68,9 @@ class AppDrawer extends StatelessWidget {
             onTap: () {
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => const NewsScreen()),
+                MaterialPageRoute(
+                  builder: (context) => NewsScreen(user: user),
+                ),
               );
             },
           ),
@@ -75,7 +80,9 @@ class AppDrawer extends StatelessWidget {
             onTap: () {
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => const ProductScreen()),
+                MaterialPageRoute(
+                  builder: (context) => ProductScreen(user: user),
+                ),
               );
             },
           ),
@@ -86,7 +93,8 @@ class AppDrawer extends StatelessWidget {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                    builder: (context) => const MembershipScreen()),
+                  builder: (context) => MembershipScreen(user: user),
+                ),
               );
             },
           ),
@@ -96,7 +104,9 @@ class AppDrawer extends StatelessWidget {
             onTap: () {
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => const PaymentScreen()),
+                MaterialPageRoute(
+                  builder: (context) => PaymentScreen(user: user),
+                ),
               );
             },
           ),
@@ -106,7 +116,9 @@ class AppDrawer extends StatelessWidget {
             onTap: () {
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                MaterialPageRoute(
+                  builder: (context) => SettingsScreen(user: user),
+                ),
               );
             },
           ),
